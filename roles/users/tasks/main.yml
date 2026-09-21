@@ -1,0 +1,25 @@
+---
+- name: users | Build account list
+  ansible.builtin.set_fact:
+    users__accounts: >-
+      {{
+        ([{'name': admin_user, 'key': admin_key}] if admin_user | length > 0 else [])
+        + ([{'name': deploy_user, 'key': deploy_key}] if deploy_user | length > 0 else [])
+      }}
+
+- name: users | Configure each account
+  ansible.builtin.include_tasks: account.yml
+  loop: "{{ users__accounts }}"
+  loop_control:
+    loop_var: account
+
+# Passwordless sudo, validate first to avoid breaking sudo
+- name: users | Configure sudoers for the admin user
+  ansible.builtin.template:
+    src: sudoers__boffyn_users.j2
+    dest: /etc/sudoers.d/boffyn_users
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+  when: admin_user | length > 0

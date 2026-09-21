@@ -1,0 +1,73 @@
+---
+- name: ssh | Warn and skip hardening if no SSH key is installed for a sudo user
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: no SSH key installed for a sudo user (set BOFFYN_ADMIN_USER
+      and BOFFYN_ADMIN_KEY) - NOT hardening sshd
+  when: not sudo_key_installed
+
+- name: ssh | Harden SSH configuration
+  when: sudo_key_installed
+  block:
+    # Build the config at a temp location - only apply if it's valid and there's an
+    # admin key.
+    - name: ssh | Install hardened sshd configuration
+      ansible.builtin.template:
+        src: 00-boffyn.conf.j2
+        dest: /etc/ssh/sshd_config.d/00-boffyn.conf
+        owner: root
+        group: root
+        mode: "0644"
+        validate: "sshd -t -f %s"
+      notify: restart ssh
+
+    # Handlers normally run at the end, flush to force restart before checks below
+    - name: ssh | Apply the sshd restart
+      ansible.builtin.meta: flush_handlers
+
+    # Confirm it actually worked and wasn't masked by include order
+    - name: ssh | Confirm effective sshd settings
+      ansible.builtin.shell:
+        cmd: "sshd -T | awk -v k={{ item.key }} '$1 == k {print $2}'"
+      register: ssh__effective
+      changed_when: false
+      loop:
+        - { key: passwordauthentication, expected: "no" }
+        - { key: permitrootlogin, expected: "no" }
+
+    - name: ssh | Assert effective sshd settings match what was configured
+      ansible.builtin.assert:
+        that: "item.stdout == item.item.expected"
+        fail_msg: >-
+          sshd effective {{ item.item.key }} is '{{ item.stdout }}', expected
+          '{{ item.item.expected }}' - check /etc/ssh/sshd_config.d/
+      loop: "{{ ssh__effective.results }}"
+
+# Pre-seed github.com host keys for the deploy user so we don't fail/prompt
+- name: ssh | Ensure the deploy user's .ssh directory
+  ansible.builtin.file:
+    path: "/home/{{ deploy_user }}/.ssh"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0700"
+  when: deploy_user | length > 0
+
+- name: ssh | Fetch github.com's host keys
+  ansible.builtin.uri:
+    url: https://api.github.com/meta
+    return_content: yes
+  register: ssh__github_meta
+  when: deploy_user | length > 0
+  failed_when: false
+
+- name: ssh | Add github.com host keys to known_hosts
+  ansible.builtin.lineinfile:
+    path: "/home/{{ deploy_user }}/.ssh/known_hosts"
+    line: "github.com {{ item }}"
+    create: yes
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0600"
+  loop: "{{ ssh__github_meta.json.ssh_keys | default([]) }}"
+  when: deploy_user | length > 0 and ssh__github_meta.status | default(0) == 200

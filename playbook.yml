@@ -1,0 +1,10 @@
+---
+- hosts: all
+  gather_facts: yes
+  roles:
+    - packages
+    - host
+    - users
+    - ssh
+    - runtime
+    - motd

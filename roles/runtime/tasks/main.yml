@@ -1,0 +1,13 @@
+---
+- name: runtime | Install Docker
+  ansible.builtin.include_tasks: docker.yml
+  when: runtime_value == "docker"
+
+- name: runtime | Install Podman
+  ansible.builtin.include_tasks: podman.yml
+  when: runtime_value == "podman"
+
+- name: runtime | Fail on an unknown runtime
+  ansible.builtin.fail:
+    msg: "Unknown runtime_value: {{ runtime_value }} (expected docker or podman)"
+  when: runtime_value not in ["docker", "podman"]

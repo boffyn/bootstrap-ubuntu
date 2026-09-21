@@ -1,0 +1,28 @@
+---
+- name: motd | Install the branded MOTD footer
+  ansible.builtin.copy:
+    src: 99-footer
+    dest: /etc/update-motd.d/99-footer
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: motd | Render the MOTD with the hostname substituted in
+  ansible.builtin.template:
+    src: motd.tail.j2
+    dest: /etc/motd.tail
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: motd | Check for Ubuntu's motd-news config
+  ansible.builtin.stat:
+    path: /etc/default/motd-news
+  register: motd__news
+
+- name: motd | Disable motd-news spam if present
+  ansible.builtin.lineinfile:
+    path: /etc/default/motd-news
+    regexp: "^ENABLED="
+    line: "ENABLED=0"
+  when: motd__news.stat.exists

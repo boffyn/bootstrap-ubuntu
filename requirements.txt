@@ -1,0 +1,11 @@
+# Pinned versions for tools used by the bootstrap
+#
+# Not used directly - extracted by `pinned_version` bash function; listed here for
+# convenience and for monitoring by dependabot.
+
+# installed by bootstrap.sh, before ansible runs
+uv==0.12.13
+ansible-core==2.19.5
+
+# installed by roles/runtime, for the podman runtime
+podman-compose==1.6.0

@@ -1,0 +1,49 @@
+---
+- name: users | Create user {{ account.name }}
+  ansible.builtin.user:
+    name: "{{ account.name }}"
+    shell: /bin/bash
+    create_home: yes
+
+- name: users | Ensure {{ account.name }}'s .ssh directory
+  ansible.builtin.file:
+    path: "/home/{{ account.name }}/.ssh"
+    state: directory
+    owner: "{{ account.name }}"
+    group: "{{ account.name }}"
+    mode: "0700"
+  when: account.key | length > 0
+
+- name: users | Validate SSH public key(s) for {{ account.name }}
+  ansible.builtin.command:
+    cmd: ssh-keygen -l -f -
+    stdin: "{{ item }}"
+  loop: "{{ account.key.splitlines() | select() | list }}"
+  changed_when: false
+  when: account.key | length > 0
+
+- name: users | Install SSH public key(s) for {{ account.name }}
+  ansible.builtin.lineinfile:
+    path: "/home/{{ account.name }}/.ssh/authorized_keys"
+    line: "{{ item }}"
+    create: yes
+    owner: "{{ account.name }}"
+    group: "{{ account.name }}"
+    mode: "0600"
+  loop: "{{ account.key.splitlines() | select() | list }}"
+  when: account.key | length > 0
+
+- name: users | Create {{ account.name }}'s bin dir
+  ansible.builtin.file:
+    path: "/home/{{ account.name }}/bin"
+    state: directory
+    owner: "{{ account.name }}"
+    group: "{{ account.name }}"
+
+- name: users | Add ~/bin to PATH for {{ account.name }}
+  ansible.builtin.lineinfile:
+    path: "/home/{{ account.name }}/.bashrc"
+    line: 'export PATH="/home/{{ account.name }}/bin:$PATH"'
+    create: yes
+    owner: "{{ account.name }}"
+    group: "{{ account.name }}"

@@ -1,0 +1,67 @@
+---
+- name: runtime | podman | Install Podman
+  ansible.builtin.apt:
+    name: podman
+    state: present
+
+- name: runtime | podman | Install podman-compose {{ podman_compose_version }} for the deploy user
+  ansible.builtin.command: "uv tool install podman-compose=={{ podman_compose_version }}"
+  become: yes
+  become_user: "{{ deploy_user }}"
+  register: runtime__podman_compose
+  changed_when: "'Installed' in runtime__podman_compose.stdout"
+
+- name: runtime | podman | Get the deploy user's uid
+  ansible.builtin.command: "id -u {{ deploy_user }}"
+  register: runtime__deploy_uid
+  changed_when: false
+
+- name: runtime | podman | Enable linger for the deploy user
+  ansible.builtin.command: "loginctl enable-linger {{ deploy_user }}"
+  args:
+    creates: "/var/lib/systemd/linger/{{ deploy_user }}"
+
+- name: runtime | podman | Wait for the user D-Bus socket
+  ansible.builtin.wait_for:
+    path: "/run/user/{{ runtime__deploy_uid.stdout }}/bus"
+    state: present
+    timeout: 30
+
+- name: runtime | podman | Enable the podman.socket user unit
+  ansible.builtin.systemd:
+    name: podman.socket
+    scope: user
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: yes
+  become_user: "{{ deploy_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ runtime__deploy_uid.stdout }}"
+  register: runtime__podman_socket_enable
+  failed_when: false
+
+- name: runtime | podman | Warn if the podman.socket unit could not be enabled
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: failed to enable podman.socket for {{ deploy_user }} -
+      containers needing the Docker/Podman API (e.g. caddy-docker-proxy)
+      will fail to connect
+  when: runtime__podman_socket_enable is failed
+
+# Allow rootless containers to bind privileged ports (80, 443). Note this
+# applies to every unprivileged user on the host, not just the deploy user -
+# see README.
+- name: runtime | podman | Write the unprivileged-ports sysctl file
+  ansible.builtin.lineinfile:
+    path: /etc/sysctl.d/60-boffyn-unprivileged-ports.conf
+    line: "net.ipv4.ip_unprivileged_port_start = 80"
+    create: yes
+    owner: root
+    group: root
+    mode: "0644"
+  register: runtime__sysctl_file
+
+- name: runtime | podman | Apply the unprivileged-ports sysctl value
+  ansible.builtin.command: sysctl -q -w net.ipv4.ip_unprivileged_port_start=80
+  changed_when: false

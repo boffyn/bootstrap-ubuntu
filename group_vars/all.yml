@@ -1,0 +1,23 @@
+---
+# Configuration from BOFFYN_* env vars
+
+admin_user: "{{ lookup('env', 'BOFFYN_ADMIN_USER') }}"
+admin_key: "{{ lookup('env', 'BOFFYN_ADMIN_KEY') }}"
+deploy_user: "{{ lookup('env', 'BOFFYN_DEPLOY_USER') or 'deployer' }}"
+deploy_key: "{{ lookup('env', 'BOFFYN_DEPLOY_KEY') or admin_key }}"
+tz_value: "{{ lookup('env', 'BOFFYN_TZ') or 'UTC' }}"
+
+hostname_full: "{{ lookup('env', 'BOFFYN_HOST') or ansible_fqdn }}"
+hostname_short: "{{ hostname_full.split('.')[0] }}"
+runtime_value: "{{ lookup('env', 'BOFFYN_RUNTIME') or 'podman' }}"
+
+# Track if there's an admin user key so we know if it's safe to lock down ssh
+sudo_key_installed: "{{ admin_user | length > 0 and admin_key | length > 0 }}"
+
+# Real hosts default to safe atomic file writes, but when testing change it to
+# unsafe because in a container certain files are mounted
+unsafe_writes: "{{ lookup('env', 'BOFFYN_UNSAFE_WRITES') == 'yes' }}"
+
+# Pinned tool versions
+uv_version: "{{ (lookup('file', playbook_dir + '/requirements.txt') | regex_search('^uv==(\\S+)', '\\1', multiline=True))[0] }}"
+podman_compose_version: "{{ (lookup('file', playbook_dir + '/requirements.txt') | regex_search('^podman-compose==(\\S+)', '\\1', multiline=True))[0] }}"
