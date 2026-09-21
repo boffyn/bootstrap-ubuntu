@@ -5,7 +5,7 @@
 
 # installed by bootstrap.sh, before ansible runs
 uv==0.12.13
-ansible-core==2.19.5
+ansible-core==2.21.4
 
 # installed by roles/runtime, for the podman runtime
 podman-compose==1.6.0
