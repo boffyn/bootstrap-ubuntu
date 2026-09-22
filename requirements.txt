@@ -4,7 +4,7 @@
 # convenience and for monitoring by dependabot.
 
 # installed by bootstrap.sh, before ansible runs
-uv==0.12.13
+uv==0.12.17
 ansible-core==2.21.4
 
 # installed by roles/runtime, for the podman runtime
