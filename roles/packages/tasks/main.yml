@@ -29,6 +29,14 @@
     name: fuse-overlayfs
     state: present
 
+# boffyn's app overlays are mounted by the deploy user, but the container doesn't have
+# the same UID that created the mount
+- name: packages | Allow non-root allow_other FUSE mounts
+  ansible.builtin.lineinfile:
+    path: /etc/fuse.conf
+    regexp: "^#?user_allow_other"
+    line: "user_allow_other"
+
 - name: packages | Get current timezone
   ansible.builtin.command: timedatectl show --property=Timezone --value
   register: packages__current_tz

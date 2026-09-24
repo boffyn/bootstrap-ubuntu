@@ -81,3 +81,17 @@ If you want to help work on this, or you want to customise your own bootstrap re
   function `pinned_version` - but it is watched by dependabot to keep things up-to-date.
 
 Run `./tests/test.sh` with docker installed to test the bootstrap script in a container.
+
+
+## Changelog
+
+### 1.0.1 - 2026-09-24
+
+Bugfix:
+
+* Fix fuse overlay mount user access
+
+
+### 1.0.0 - 2026-09-22
+
+Initial release
